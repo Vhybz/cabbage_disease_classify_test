@@ -362,17 +362,6 @@ class AppProvider with ChangeNotifier {
       'twi_treatment': 'Yi nkabeji a afei pɔrɔ no fi afuo no mu, na hwɛ ma asase no so nyina ne ho nsuo.',
       'image': 'assets/images/c5.jpg'
     },
-    'Bacterial Soft Rot': {
-      'description': 'A severe bacterial infection that causes water-soaked lesions and rapid rotting of cabbage heads.',
-      'symptoms': '• Water-soaked, soft, slimy leaf lesions\n• Foul, offensive odor\n• Collapse of whole cabbage heads\n• Discolored vascular tissues',
-      'causes': '• Pectobacterium carotovorum (Erwinia carotovora)\n• High moisture and warm weather\n• Plant injuries from insects or handling',
-      'prevention': '• Avoid physical injury during harvesting/cultivation\n• Ensure good field drainage and air flow\n• Rotate crops with non-susceptible plants',
-      'treatment': '• Remove and destroy infected plants\n• Apply copper bactericides early\n• Allow soil to dry between waterings',
-      'twi_name': 'Bacterial Spot Rot Yadeɛ',
-      'twi_description': 'Yadeɛ yi firi mmoawa a ɛma kabeji no fɔm yɛ meree na ɛbɔ bon bi kɛseɛ.',
-      'twi_treatment': 'Yi nkabeji a afei pɔrɔ no fi afuo no mu, na hwɛ ma asase no so nyina ne ho nsuo.',
-      'image': 'assets/images/c5.jpg'
-    },
     'Cabbage Aphid Infestation': {
       'description': 'Pest infestation caused by gray-green aphids feeding on cabbage leaf sap.',
       'symptoms': '• Curled, distorted, or yellowing leaves\n• Sticky honeydew on leaf surfaces\n• Clusters of small gray-green insects\n• Stunted plant growth',
