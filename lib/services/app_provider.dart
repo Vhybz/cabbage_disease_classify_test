@@ -1,4 +1,4 @@
-import 'dart:async' as async;
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'dart:io' as io;
@@ -351,13 +351,24 @@ class AppProvider with ChangeNotifier {
       'twi_treatment': 'Kɔ so hwɛ wo nnɔbae no so yiye na kɔ so yɛ adwuma pa.',
       'image': 'assets/images/c1.jpg'
     },
+    'Bacterial Spot Rot': {
+      'description': 'A severe bacterial infection that causes water-soaked lesions and rapid rotting of cabbage heads.',
+      'symptoms': '• Water-soaked, soft, slimy leaf lesions\n• Foul, offensive odor\n• Collapse of whole cabbage heads\n• Discolored vascular tissues',
+      'causes': '• Pectobacterium carotovorum (Erwinia carotovora)\n• High moisture and warm weather\n• Plant injuries from insects or handling',
+      'prevention': '• Avoid physical injury during harvesting/cultivation\n• Ensure good field drainage and air flow\n• Rotate crops with non-susceptible plants',
+      'treatment': '• Remove and destroy infected plants\n• Apply copper bactericides early\n• Allow soil to dry between waterings',
+      'twi_name': 'Bacterial Spot Rot Yadeɛ',
+      'twi_description': 'Yadeɛ yi firi mmoawa a ɛma kabeji no fɔm yɛ meree na ɛbɔ bon bi kɛseɛ.',
+      'twi_treatment': 'Yi nkabeji a afei pɔrɔ no fi afuo no mu, na hwɛ ma asase no so nyina ne ho nsuo.',
+      'image': 'assets/images/c5.jpg'
+    },
     'Bacterial Soft Rot': {
       'description': 'A severe bacterial infection that causes water-soaked lesions and rapid rotting of cabbage heads.',
       'symptoms': '• Water-soaked, soft, slimy leaf lesions\n• Foul, offensive odor\n• Collapse of whole cabbage heads\n• Discolored vascular tissues',
       'causes': '• Pectobacterium carotovorum (Erwinia carotovora)\n• High moisture and warm weather\n• Plant injuries from insects or handling',
       'prevention': '• Avoid physical injury during harvesting/cultivation\n• Ensure good field drainage and air flow\n• Rotate crops with non-susceptible plants',
       'treatment': '• Remove and destroy infected plants\n• Apply copper bactericides early\n• Allow soil to dry between waterings',
-      'twi_name': 'Bacterial Soft Rot Yadeɛ',
+      'twi_name': 'Bacterial Spot Rot Yadeɛ',
       'twi_description': 'Yadeɛ yi firi mmoawa a ɛma kabeji no fɔm yɛ meree na ɛbɔ bon bi kɛseɛ.',
       'twi_treatment': 'Yi nkabeji a afei pɔrɔ no fi afuo no mu, na hwɛ ma asase no so nyina ne ho nsuo.',
       'image': 'assets/images/c5.jpg'
@@ -516,7 +527,7 @@ class AppProvider with ChangeNotifier {
           'FINALIZING DIAGNOSIS...'
         ];
 
-        final progressTimer = async.Timer.periodic(const Duration(seconds: 3), (timer) {
+        final progressTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
           if (!_isLoading) {
             timer.cancel();
             return;

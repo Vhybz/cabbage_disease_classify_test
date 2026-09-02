@@ -14,7 +14,7 @@ class TFLiteService implements TFLiteServiceInterface {
   Interpreter? _interpreter;
   List<String> _labels = [
     'Alternaria Leaf Spot',
-    'Bacterial Soft Rot',
+    'Bacterial Spot Rot',
     'Black Rot',
     'Cabbage Aphid Infestation',
     'Downy Mildew',

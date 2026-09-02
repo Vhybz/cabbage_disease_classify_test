@@ -7,7 +7,7 @@ import 'tflite_service_interface.dart';
 class TFLiteService implements TFLiteServiceInterface {
   final List<String> _labels = [
     'Alternaria Leaf Spot',
-    'Bacterial Soft Rot',
+    'Bacterial Spot Rot',
     'Black Rot',
     'Cabbage Aphid Infestation',
     'Downy Mildew',

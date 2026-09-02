@@ -42,7 +42,7 @@ if os.path.exists(LABELS_PATH):
 else:
     LABELS = [
         "Alternaria Leaf Spot",
-        "Bacterial Soft Rot",
+        "Bacterial Spot Rot",
         "Black Rot",
         "Cabbage Aphid Infestation",
         "Downy Mildew",
