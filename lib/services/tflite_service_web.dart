@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'tflite_service_interface.dart';
 
@@ -31,7 +32,7 @@ class TFLiteService implements TFLiteServiceInterface {
       final Uint8List imageBytes = response.bodyBytes;
 
       // 2. Call Render API
-      const String apiUrl = 'https://capii.onrender.com/predict';
+      final String apiUrl = dotenv.env['RENDER_API_URL'] ?? 'https://cabbage-disease-classify-test.onrender.com/predict';
       
       var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
       request.files.add(http.MultipartFile.fromBytes(
@@ -45,13 +46,13 @@ class TFLiteService implements TFLiteServiceInterface {
 
       if (apiResponse.statusCode == 200) {
         final dynamic data = jsonDecode(apiResponse.body);
-        String label = data['disease'] ?? 'Healthy';
+        String label = data['disease'] ?? data['label'] ?? 'Healthy';
         double confidence = (data['confidence'] as num?)?.toDouble() ?? 0.0;
+        bool isLeaf = (data['is_leaf'] as bool?) ?? (label != 'Not a Cabbage Leaf' && label != 'Not cabbage');
 
-        // Threshold check: classification threshold = 0.35
-        if (confidence < 0.35 || label == 'Not a Cabbage Leaf' || label == 'Not cabbage') {
+        if (!isLeaf || label == 'Not a Cabbage Leaf' || label == 'Not cabbage') {
           return {
-            'label': (label == 'Not a Cabbage Leaf' || label == 'Not cabbage') ? 'Not a Cabbage Leaf' : 'Unidentified / Not a Leaf',
+            'label': 'Not a Cabbage Leaf',
             'confidence': confidence,
             'index': 6,
             'isLeaf': false,
@@ -61,7 +62,7 @@ class TFLiteService implements TFLiteServiceInterface {
         return {
           'label': label,
           'confidence': confidence,
-          'index': _labels.contains(label) ? _labels.indexOf(label) : 3,
+          'index': _labels.contains(label) ? _labels.indexOf(label) : 0,
           'isLeaf': true,
         };
       } else {

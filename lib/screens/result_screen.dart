@@ -178,7 +178,10 @@ class _ResultScreenState extends State<ResultScreen> {
                     _buildInfoCard(prediction.treatment, theme, colorScheme),
                   ],
 
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 32),
+                  _buildSaveToHistoryButton(provider, context, colorScheme),
+
+                  const SizedBox(height: 24),
                   if (!isNotLeaf) ...[
                     ElevatedButton(
                       onPressed: () => Navigator.push(
@@ -235,6 +238,48 @@ class _ResultScreenState extends State<ResultScreen> {
 
   Widget _buildSectionLabel(String text, ColorScheme colorScheme) {
     return Text(text, style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.4), fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5));
+  }
+
+  Widget _buildSaveToHistoryButton(AppProvider provider, BuildContext context, ColorScheme colorScheme) {
+    final isSaved = provider.isCurrentPredictionSaved;
+
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: isSaved ? null : () async {
+          await provider.saveCurrentPredictionToHistory();
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(provider.tr('Diagnosis saved to your scan history!')),
+                backgroundColor: const Color(0xFF2E7D32),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            );
+          }
+        },
+        icon: Icon(
+          isSaved ? Icons.check_circle_rounded : Icons.bookmark_add_rounded,
+          size: 20,
+          color: isSaved ? Colors.white70 : Colors.white,
+        ),
+        label: Text(
+          provider.tr(isSaved ? 'SAVED TO HISTORY' : 'SAVE TO HISTORY'),
+          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13, letterSpacing: 1),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isSaved ? const Color(0xFF1B5E20) : colorScheme.primary,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: const Color(0xFF1B5E20),
+          disabledForegroundColor: Colors.white70,
+          elevation: isSaved ? 0 : 2,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+      ),
+    );
   }
 
   Widget _buildInfoCard(String text, ThemeData theme, ColorScheme colorScheme) {

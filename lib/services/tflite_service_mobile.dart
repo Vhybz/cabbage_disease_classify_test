@@ -1,7 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
-// Removed unused dart:math and dart:typed_data imports
-
+import 'dart:math' as math;
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 import 'tflite_service_interface.dart';
@@ -66,14 +67,25 @@ class TFLiteService implements TFLiteServiceInterface {
   Future<Map<String, dynamic>?> classifyImage(String imageSource) async {
     try {
       if (_interpreter == null) await loadModel();
-      if (_interpreter == null) return null;
+      if (_interpreter == null) {
+        debugPrint('TFLite Mobile: Interpreter is null, falling back to Render API...');
+        return await _classifyWithRenderAPI(imageSource);
+      }
 
       final File imageFile = File(imageSource.startsWith('http') ? await _downloadImage(imageSource) : imageSource);
-      if (!imageFile.existsSync()) return null;
+      if (!imageFile.existsSync()) {
+        debugPrint('TFLite Error: Image file does not exist at $imageSource, trying Render API...');
+        return await _classifyWithRenderAPI(imageSource);
+      }
 
-      var image = img.decodeImage(imageFile.readAsBytesSync());
-      if (image == null) return null;
+      final Uint8List bytes = imageFile.readAsBytesSync();
+      var image = img.decodeImage(bytes);
+      if (image == null) {
+        debugPrint('TFLite Error: Failed to decode image bytes (${bytes.length} bytes), trying Render API...');
+        return await _classifyWithRenderAPI(imageSource);
+      }
       image = img.bakeOrientation(image);
+      debugPrint('TFLite Info: Successfully decoded image (${image.width}x${image.height})');
 
       final inputTensor = _interpreter!.getInputTensor(0);
       final outputTensor = _interpreter!.getOutputTensor(0);
@@ -103,11 +115,15 @@ class TFLiteService implements TFLiteServiceInterface {
       var output = Float32List(numClasses).reshape([1, numClasses]);
       _interpreter!.run(inputBuffer.reshape([1, inputHeight, inputWidth, 3]), output);
 
-      List<double> probabilities = List<double>.from(output[0]);
+      List<double> rawScores = List<double>.from(output[0]);
+      
+      // Ensure probabilities are proper 0.0 - 1.0 softmax values
+      List<double> probabilities = _applySoftmax(rawScores);
+
       double maxScore = 0.0;
       int maxIndex = 0;
 
-      debugPrint('--- AI DEBUG SCORES (RAW 0-255 RGB) ---');
+      debugPrint('--- AI DEBUG SCORES ---');
       for (int i = 0; i < probabilities.length && i < _labels.length; i++) {
         debugPrint('${_labels[i]}: ${(probabilities[i] * 100).toStringAsFixed(2)}%');
         if (probabilities[i] > maxScore) {
@@ -115,17 +131,14 @@ class TFLiteService implements TFLiteServiceInterface {
           maxIndex = i;
         }
       }
-      debugPrint('---------------------------------------');
+      debugPrint('-----------------------');
 
-      // Classification confidence threshold (35%)
-      const double threshold = 0.35;
-      bool isConfident = maxScore >= threshold;
       String predictedLabel = maxIndex < _labels.length ? _labels[maxIndex] : 'Unidentified';
       bool isNotLeaf = maxIndex == 6 || predictedLabel == 'Not a Cabbage Leaf' || predictedLabel == 'Not cabbage';
 
-      if (!isConfident || isNotLeaf) {
+      if (isNotLeaf) {
         return {
-          'label': isNotLeaf ? 'Not a Cabbage Leaf' : 'Unidentified / Not a Leaf',
+          'label': 'Not a Cabbage Leaf',
           'confidence': maxScore,
           'index': maxIndex,
           'isLeaf': false,
@@ -140,9 +153,70 @@ class TFLiteService implements TFLiteServiceInterface {
         'all_scores': probabilities,
       };
     } catch (e) {
-      debugPrint('TFLite Inference Error: $e');
-      return null;
+      debugPrint('TFLite Inference Error: $e. Falling back to Render API...');
+      return await _classifyWithRenderAPI(imageSource);
     }
+  }
+
+  Future<Map<String, dynamic>?> _classifyWithRenderAPI(String imageSource) async {
+    try {
+      final String apiUrl = dotenv.env['RENDER_API_URL'] ?? 'https://cabbage-disease-classify-test.onrender.com/predict';
+      
+      final File imageFile = File(imageSource.startsWith('http') ? await _downloadImage(imageSource) : imageSource);
+      if (!imageFile.existsSync()) return null;
+
+      final Uint8List imageBytes = await imageFile.readAsBytes();
+
+      var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
+      request.files.add(http.MultipartFile.fromBytes(
+        'file',
+        imageBytes,
+        filename: 'image.jpg',
+      ));
+
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 15));
+      final apiResponse = await http.Response.fromStream(streamedResponse);
+
+      if (apiResponse.statusCode == 200) {
+        final dynamic data = jsonDecode(apiResponse.body);
+        String label = data['disease'] ?? data['label'] ?? 'Healthy';
+        double confidence = (data['confidence'] as num?)?.toDouble() ?? 0.0;
+        bool isLeaf = (data['is_leaf'] as bool?) ?? (label != 'Not a Cabbage Leaf' && label != 'Not cabbage');
+
+        if (!isLeaf || label == 'Not a Cabbage Leaf' || label == 'Not cabbage') {
+          return {
+            'label': 'Not a Cabbage Leaf',
+            'confidence': confidence,
+            'index': 6,
+            'isLeaf': false,
+          };
+        }
+
+        return {
+          'label': label,
+          'confidence': confidence,
+          'index': _labels.contains(label) ? _labels.indexOf(label) : 0,
+          'isLeaf': true,
+        };
+      }
+    } catch (e) {
+      debugPrint('Render API Fallback Error: $e');
+    }
+    return null;
+  }
+
+  List<double> _applySoftmax(List<double> logits) {
+    if (logits.isEmpty) return logits;
+    double sum = logits.reduce((a, b) => a + b);
+    // If logits sum is not ~1.0, apply softmax to convert logits to probabilities
+    if ((sum - 1.0).abs() > 0.05) {
+      double maxLogit = logits.reduce((a, b) => a > b ? a : b);
+      List<double> expValues = logits.map((x) => math.exp(x - maxLogit)).toList();
+      double sumExp = expValues.reduce((a, b) => a + b);
+      if (sumExp == 0) return logits;
+      return expValues.map((x) => x / sumExp).toList();
+    }
+    return logits;
   }
 
   @override

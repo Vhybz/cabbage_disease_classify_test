@@ -28,9 +28,12 @@ class AppProvider with ChangeNotifier {
   io.File? _selectedImage;
   Prediction? _currentPrediction;
   bool _isLoading = false;
+  bool _isCurrentPredictionSaved = false;
   String _analysisMessage = 'ANALYZING LEAF...';
   List<Prediction> _history = [];
   List<Schedule> _schedules = [];
+
+  bool get isCurrentPredictionSaved => _isCurrentPredictionSaved;
   
   ThemeMode _themeMode = ThemeMode.light;
   String _language = 'English';
@@ -463,10 +466,43 @@ class AppProvider with ChangeNotifier {
     return null;
   }
 
+  Future<void> saveCurrentPredictionToHistory() async {
+    if (_currentPrediction == null || _isCurrentPredictionSaved) return;
+
+    _history.insert(0, _currentPrediction!);
+    _saveHistory();
+    _checkAndNotifyAnalytics();
+    _isCurrentPredictionSaved = true;
+    notifyListeners();
+
+    if (!isGuest) {
+      final scanToSave = _currentPrediction!;
+      final imagePath = scanToSave.imagePath;
+      try {
+        if (kIsWeb || imagePath.startsWith('http') || imagePath.startsWith('blob:')) {
+          return;
+        }
+        final fileForCloud = io.File(imagePath);
+        if (fileForCloud.existsSync()) {
+          final bytes = await fileForCloud.readAsBytes();
+          _supabaseService.saveScan(scanToSave, imagePath, bytes).then((_) {
+            debugPrint('Cloud save successful');
+            syncWithCloud();
+          }).catchError((e) {
+            debugPrint('Cloud save failed: $e');
+          });
+        }
+      } catch (e) {
+        debugPrint('Error saving to cloud: $e');
+      }
+    }
+  }
+
   Future<void> pickImage(ImageSource source, BuildContext context) async {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     _currentPrediction = null;
+    _isCurrentPredictionSaved = false;
     
     try {
       if (!kIsWeb && source == ImageSource.camera) {
@@ -491,6 +527,9 @@ class AppProvider with ChangeNotifier {
 
       final XFile? pickedFile = await _picker.pickImage(
         source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
       );
       
       if (pickedFile != null) {
@@ -537,12 +576,12 @@ class AppProvider with ChangeNotifier {
         if (result != null) {
           if (result['isLeaf'] == false) {
             _currentPrediction = Prediction(
-              diseaseName: _language == 'Twi' ? 'Mfomsoɔ' : 'Invalid Image',
+              diseaseName: _language == 'Twi' ? 'Ɛnyɛ Kabeji Nhaban' : 'Not a Valid Cabbage Leaf',
               confidence: (result['confidence'] as num?)?.toDouble() ?? 0.0,
               description: _language == 'Twi' 
                   ? 'Mfonini a woyiiɛ no nsɛ kabeji nhaban anaa ɛnyɛ fann. Yɛpa wo kyɛw scan kabeji nhaban a ɛfata na fann.' 
                   : 'The image captured does not look like a cabbage leaf or is not clear enough. Please try again with a clear photo of a cabbage leaf.',
-              treatment: _language == 'Twi' ? 'Sane yɛ mfonini foforɔ.' : 'Please retake the photo.',
+              treatment: _language == 'Twi' ? 'Sane yɛ mfonini foforɔ.' : 'Please retake the photo of a cabbage leaf.',
               imagePath: imagePath,
               dateTime: DateTime.now(),
               isAsset: false,
@@ -565,30 +604,10 @@ class AppProvider with ChangeNotifier {
             );
           }
           
-          // 1. Update local state immediately
-          _history.insert(0, _currentPrediction!);
-          _saveHistory();
-          _checkAndNotifyAnalytics();
-          
-          // 2. Stop loading so UI can navigate to ResultScreen
           _isLoading = false;
+          _isCurrentPredictionSaved = false;
           notifyListeners();
-
-          // 3. Save to cloud in the background WITHOUT blocking the UI
-          if (!isGuest) {
-            final scanToSave = _currentPrediction!;
-            final pathForCloud = imagePath;
-            
-            pickedFile.readAsBytes().then((bytes) {
-              _supabaseService.saveScan(scanToSave, pathForCloud, bytes).then((_) {
-                debugPrint('Cloud save successful');
-                syncWithCloud();
-              }).catchError((e) {
-                debugPrint('Cloud save failed: $e');
-              });
-            });
-          }
-          return; // Exit early to skip the generic _isLoading = false in finally
+          return;
         } else {
           _currentPrediction = Prediction(
             diseaseName: _language == 'Twi' ? 'Mfomsoɔ' : 'Analysis Error',
@@ -623,6 +642,7 @@ class AppProvider with ChangeNotifier {
   Future<void> processLiveScanResult(String imagePath, Map<String, dynamic> result) async {
     try {
       _isLoading = true;
+      _isCurrentPredictionSaved = false;
       notifyListeners();
 
       String savedPath = imagePath;
@@ -639,12 +659,12 @@ class AppProvider with ChangeNotifier {
 
       if (result['isLeaf'] == false) {
         _currentPrediction = Prediction(
-          diseaseName: _language == 'Twi' ? 'Mfomsoɔ' : 'Invalid Image',
+          diseaseName: _language == 'Twi' ? 'Ɛnyɛ Kabeji Nhaban' : 'Not a Valid Cabbage Leaf',
           confidence: (result['confidence'] as num?)?.toDouble() ?? 0.0,
           description: _language == 'Twi' 
               ? 'Mfonini a woyiiɛ no nsɛ kabeji nhaban anaa ɛnyɛ fann. Yɛpa wo kyɛw scan kabeji nhaban a ɛfata na fann.' 
               : 'The image captured does not look like a cabbage leaf or is not clear enough. Please try again with a clear photo of a cabbage leaf.',
-          treatment: _language == 'Twi' ? 'Sane yɛ mfonini foforɔ.' : 'Please retake the photo.',
+          treatment: _language == 'Twi' ? 'Sane yɛ mfonini foforɔ.' : 'Please retake the photo of a cabbage leaf.',
           imagePath: savedPath,
           dateTime: DateTime.now(),
           isAsset: false,
@@ -667,25 +687,9 @@ class AppProvider with ChangeNotifier {
         );
       }
 
-      _history.insert(0, _currentPrediction!);
-      _saveHistory();
-      _checkAndNotifyAnalytics();
       _isLoading = false;
+      _isCurrentPredictionSaved = false;
       notifyListeners();
-
-      if (!isGuest) {
-        final scanToSave = _currentPrediction!;
-        final fileForCloud = io.File(savedPath);
-        if (fileForCloud.existsSync()) {
-          final bytes = await fileForCloud.readAsBytes();
-          _supabaseService.saveScan(scanToSave, savedPath, bytes).then((_) {
-            debugPrint('Cloud save successful');
-            syncWithCloud();
-          }).catchError((e) {
-            debugPrint('Cloud save failed: $e');
-          });
-        }
-      }
     } catch (e) {
       debugPrint('Error processing live scan result: $e');
       _isLoading = false;
