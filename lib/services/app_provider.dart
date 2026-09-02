@@ -945,6 +945,10 @@ class AppProvider with ChangeNotifier {
       'Cabbage Focus': 'Kabeji Nko Ara',
       'To get the most accurate results, please ensure you are scanning a cabbage leaf. Other objects or non-cabbage plants might be misidentified as diseased cabbage.': 'Boa yɛn na yɛmmoa wo! Sɛ wopɛ sɛ yenya yadeɛ no din pɛpɛɛpɛ a, yɛpa wo kyɛw scan kabeji nhaban nko ara. Ɛtɔ da bi a, AI no bɛtumi abu nnɔbae foforɔ sɛ kabeji a ayɛ yadeɛ, enti kabeji nhaban nko ara a wobɛscan no bɛboa wo afuo paa.',
       'PROCEED': 'KƆ SO',
+      'Scanning Guidance': 'NhwehwƐmu AkwankyerƐ',
+      'Please ensure you take a clear, well-lit photo focused directly on a cabbage leaf.': 'YƐpa wo kyƐw mfa kamera no nyi kabeji nhaban no fann paa.',
+      'Note: AI predictions may occasionally misidentify severe disease symptoms or non-cabbage images. Always verify diagnosis.': 'HyƐ no nso: Ɛtɔ da a, AI no bƐtumi ayƐ mfomsoƆ wɔ nhaban a ayƐ yadeƐ paa anaa nnƆbae foforƆ ho. HwƐ nhwehwƐmu no yiye.',
+      'PROCEED TO SCAN': 'KƆ SO SCAN',
     };
 
     return twiMap[key] ?? key;

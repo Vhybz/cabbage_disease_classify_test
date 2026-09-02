@@ -26,7 +26,86 @@ class HomeScreen extends StatelessWidget {
 
   Future<void> _handleScan(BuildContext context, ImageSource source) async {
     final provider = Provider.of<AppProvider>(context, listen: false);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
+    // Show friendly reminder and guidance dialog before scanning
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: theme.cardColor,
+        title: Row(
+          children: [
+            Icon(Icons.info_outline_rounded, color: colorScheme.primary, size: 24),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                provider.tr('Scanning Guidance'),
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: colorScheme.onSurface),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              provider.tr('Please ensure you take a clear, well-lit photo focused directly on a cabbage leaf.'),
+              style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.8), fontSize: 14, height: 1.5),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.secondary.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: colorScheme.secondary.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Colors.orange.shade800, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      provider.tr('Note: AI predictions may occasionally misidentify severe disease symptoms or non-cabbage images. Always verify diagnosis.'),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSurface.withValues(alpha: 0.9),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(provider.tr('CANCEL'), style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5), fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colorScheme.primary,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            child: Text(provider.tr('PROCEED TO SCAN'), style: const TextStyle(fontWeight: FontWeight.w800)),
+          ),
+        ],
+      ),
+    );
+
+    if (proceed != true) return;
+
+    if (!context.mounted) return;
     await provider.pickImage(source, context);
     if (context.mounted && provider.currentPrediction != null) {
       Navigator.push(context, MaterialPageRoute(builder: (context) => const ResultScreen()));
