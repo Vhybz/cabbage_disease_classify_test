@@ -48,8 +48,8 @@ class TFLiteService implements TFLiteServiceInterface {
         String label = data['disease'] ?? 'Healthy';
         double confidence = (data['confidence'] as num?)?.toDouble() ?? 0.0;
 
-        // Threshold check: model specification confidence threshold = 0.891
-        if (confidence < 0.891 || label == 'Not a Cabbage Leaf' || label == 'Not cabbage') {
+        // Threshold check: classification threshold = 0.35
+        if (confidence < 0.35 || label == 'Not a Cabbage Leaf' || label == 'Not cabbage') {
           return {
             'label': (label == 'Not a Cabbage Leaf' || label == 'Not cabbage') ? 'Not a Cabbage Leaf' : 'Unidentified / Not a Leaf',
             'confidence': confidence,

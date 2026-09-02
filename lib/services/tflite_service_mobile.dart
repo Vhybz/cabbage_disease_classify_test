@@ -117,8 +117,8 @@ class TFLiteService implements TFLiteServiceInterface {
       }
       debugPrint('---------------------------------------');
 
-      // Model specification: confidence threshold = 0.891
-      const double threshold = 0.891;
+      // Classification confidence threshold (35%)
+      const double threshold = 0.35;
       bool isConfident = maxScore >= threshold;
       String predictedLabel = maxIndex < _labels.length ? _labels[maxIndex] : 'Unidentified';
       bool isNotLeaf = maxIndex == 6 || predictedLabel == 'Not a Cabbage Leaf' || predictedLabel == 'Not cabbage';
