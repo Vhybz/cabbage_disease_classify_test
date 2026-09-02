@@ -1,9 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'dart:io' as io;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:geolocator/geolocator.dart';
@@ -420,52 +420,6 @@ class AppProvider with ChangeNotifier {
     return _diseaseData[diseaseName];
   }
 
-
-  Future<io.File?> _cropImage(String path, ThemeData theme, ColorScheme colorScheme) async {
-    if (kIsWeb) return null; // Image cropper might not support web in this direct way
-    try {
-      final croppedFile = await ImageCropper().cropImage(
-        sourcePath: path,
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: _language == 'Twi' ? 'Twia mfonini no' : 'Focus on the Leaf',
-            toolbarColor: colorScheme.primary,
-            toolbarWidgetColor: Colors.white,
-            activeControlsWidgetColor: colorScheme.secondary,
-            backgroundColor: theme.scaffoldBackgroundColor,
-            statusBarColor: colorScheme.primary,
-            showCropGrid: true,
-            initAspectRatio: CropAspectRatioPreset.original,
-            lockAspectRatio: false,
-            aspectRatioPresets: [
-              CropAspectRatioPreset.original,
-              CropAspectRatioPreset.square,
-              CropAspectRatioPreset.ratio3x2,
-              CropAspectRatioPreset.ratio4x3,
-              CropAspectRatioPreset.ratio16x9
-            ],
-          ),
-          IOSUiSettings(
-            title: _language == 'Twi' ? 'Twia mfonini no' : 'Focus on the Leaf',
-            aspectRatioPresets: [
-              CropAspectRatioPreset.original,
-              CropAspectRatioPreset.square,
-              CropAspectRatioPreset.ratio3x2,
-              CropAspectRatioPreset.ratio4x3,
-              CropAspectRatioPreset.ratio16x9
-            ],
-          ),
-        ],
-      );
-      if (croppedFile != null) {
-        return io.File(croppedFile.path);
-      }
-    } catch (e) {
-      debugPrint('Cropping error: $e');
-    }
-    return null;
-  }
-
   Future<void> saveCurrentPredictionToHistory() async {
     if (_currentPrediction == null || _isCurrentPredictionSaved) return;
 
@@ -499,8 +453,6 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> pickImage(ImageSource source, BuildContext context) async {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     _currentPrediction = null;
     _isCurrentPredictionSaved = false;
     
@@ -533,42 +485,55 @@ class AppProvider with ChangeNotifier {
       );
       
       if (pickedFile != null) {
-        await Future.delayed(const Duration(milliseconds: 200));
-        
+        _isLoading = true;
+        _currentPrediction = null;
+        _analysisMessage = _language == 'Twi' ? 'YƐRESCAN NHABAN NO...' : 'SCANNING LEAF...';
+        notifyListeners();
+
+        // Cycle status messages to reassure user while waiting for model response
+        int msgIndex = 0;
+        final List<String> progressMsgs = _language == 'Twi' ? [
+          'YƐRESCAN NHABAN NO...',
+          'YƐRENE AI MODEL NO REKITAHƆ...',
+          'YƐREHWEHWƐ YADEƐ MMFONINI MU...',
+          'MODEL NO RERYƐ ADWENE...'
+        ] : [
+          'SCANNING LEAF...',
+          'CONNECTING TO AI MODEL...',
+          'EXTRACTING BIOLOGICAL FEATURES...',
+          'ANALYZING LEAF PATTERNS...',
+          'FINALIZING DIAGNOSIS...'
+        ];
+
+        final progressTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+          if (!_isLoading) {
+            timer.cancel();
+            return;
+          }
+          msgIndex = (msgIndex + 1) % progressMsgs.length;
+          _analysisMessage = progressMsgs[msgIndex];
+          notifyListeners();
+        });
+
         String imagePath = pickedFile.path;
         io.File finalImage = io.File(pickedFile.path);
 
-        if (!kIsWeb) {
-          final cropped = await _cropImage(pickedFile.path, theme, colorScheme);
-          if (cropped != null) {
-            finalImage = cropped;
-            imagePath = cropped.path;
-          }
-        }
-
-        _isLoading = true;
-        _currentPrediction = null;
-        _analysisMessage = 'SCANNING...';
-        notifyListeners();
-
-        await Future.delayed(const Duration(milliseconds: 300));
-        _analysisMessage = 'EXTRACTING FEATURES...';
-        notifyListeners();
-        
         // For web, read bytes directly to avoid blob URL issues
         final dynamic input = kIsWeb ? await pickedFile.readAsBytes() : imagePath;
         final result = await _tfLiteService.classifyImage(input);
         
-        await Future.delayed(const Duration(milliseconds: 300));
-        _analysisMessage = 'MODEL DECIDING...';
-        notifyListeners();
+        progressTimer.cancel();
 
         if (!kIsWeb) {
-          final directory = await getApplicationDocumentsDirectory();
-          final fileName = 'scan_${DateTime.now().millisecondsSinceEpoch}.jpg';
-          final savedImage = await finalImage.copy('${directory.path}/$fileName');
-          _selectedImage = savedImage;
-          imagePath = savedImage.path;
+          try {
+            final directory = await getApplicationDocumentsDirectory();
+            final fileName = 'scan_${DateTime.now().millisecondsSinceEpoch}.jpg';
+            final savedImage = await finalImage.copy('${directory.path}/$fileName');
+            _selectedImage = savedImage;
+            imagePath = savedImage.path;
+          } catch (fileErr) {
+            debugPrint('Error copying image: $fileErr');
+          }
         } else {
            imagePath = pickedFile.path; // Web uses blob URLs
         }
@@ -603,11 +568,6 @@ class AppProvider with ChangeNotifier {
               isLeaf: true,
             );
           }
-          
-          _isLoading = false;
-          _isCurrentPredictionSaved = false;
-          notifyListeners();
-          return;
         } else {
           _currentPrediction = Prediction(
             diseaseName: _language == 'Twi' ? 'Mfomsoɔ' : 'Analysis Error',
@@ -619,6 +579,11 @@ class AppProvider with ChangeNotifier {
             isAsset: false,
           );
         }
+
+        _isLoading = false;
+        _isCurrentPredictionSaved = false;
+        notifyListeners();
+        return;
       }
     } catch (e) {
       debugPrint('Error during selection/classification: $e');
@@ -636,64 +601,6 @@ class AppProvider with ChangeNotifier {
         _isLoading = false;
         notifyListeners();
       }
-    }
-  }
-
-  Future<void> processLiveScanResult(String imagePath, Map<String, dynamic> result) async {
-    try {
-      _isLoading = true;
-      _isCurrentPredictionSaved = false;
-      notifyListeners();
-
-      String savedPath = imagePath;
-      if (!kIsWeb) {
-        final file = io.File(imagePath);
-        if (file.existsSync()) {
-          final directory = await getApplicationDocumentsDirectory();
-          final fileName = 'scan_${DateTime.now().millisecondsSinceEpoch}.jpg';
-          final savedImage = await file.copy('${directory.path}/$fileName');
-          _selectedImage = savedImage;
-          savedPath = savedImage.path;
-        }
-      }
-
-      if (result['isLeaf'] == false) {
-        _currentPrediction = Prediction(
-          diseaseName: _language == 'Twi' ? 'Ɛnyɛ Kabeji Nhaban' : 'Not a Valid Cabbage Leaf',
-          confidence: (result['confidence'] as num?)?.toDouble() ?? 0.0,
-          description: _language == 'Twi' 
-              ? 'Mfonini a woyiiɛ no nsɛ kabeji nhaban anaa ɛnyɛ fann. Yɛpa wo kyɛw scan kabeji nhaban a ɛfata na fann.' 
-              : 'The image captured does not look like a cabbage leaf or is not clear enough. Please try again with a clear photo of a cabbage leaf.',
-          treatment: _language == 'Twi' ? 'Sane yɛ mfonini foforɔ.' : 'Please retake the photo of a cabbage leaf.',
-          imagePath: savedPath,
-          dateTime: DateTime.now(),
-          isAsset: false,
-          isLeaf: false,
-        );
-      } else {
-        String label = result['label'];
-        double confidence = (result['confidence'] as num?)?.toDouble() ?? 0.0;
-        final data = _diseaseData[label];
-        
-        _currentPrediction = Prediction(
-          diseaseName: _language == 'Twi' ? (data?['twi_name'] ?? label) : label,
-          confidence: confidence,
-          description: _language == 'Twi' ? (data?['twi_description'] ?? 'Ankyerɛmu biara nni hɔ') : (data?['description'] ?? 'Unknown'),
-          treatment: _language == 'Twi' ? (data?['twi_treatment'] ?? 'Ayaresa biara nni hɔ') : (data?['treatment'] ?? 'No treatment info available.'),
-          imagePath: savedPath,
-          dateTime: DateTime.now(),
-          isAsset: false,
-          isLeaf: true,
-        );
-      }
-
-      _isLoading = false;
-      _isCurrentPredictionSaved = false;
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error processing live scan result: $e');
-      _isLoading = false;
-      notifyListeners();
     }
   }
 

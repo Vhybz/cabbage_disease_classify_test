@@ -23,52 +23,81 @@ class TFLiteService implements TFLiteServiceInterface {
   }
 
   @override
-  Future<Map<String, dynamic>?> classifyImage(String imageSource) async {
+  Future<Map<String, dynamic>?> classifyImage(dynamic imageInput) async {
     try {
       debugPrint('TFLite Web: Sending image bytes to Render API...');
       
-      // 1. Fetch image bytes directly from the URL provided (blob or network)
-      final response = await http.get(Uri.parse(imageSource));
-      final Uint8List imageBytes = response.bodyBytes;
+      Uint8List imageBytes;
+      if (imageInput is Uint8List) {
+        imageBytes = imageInput;
+      } else if (imageInput is List<int>) {
+        imageBytes = Uint8List.fromList(imageInput);
+      } else if (imageInput is String) {
+        if (imageInput.startsWith('http') || imageInput.startsWith('blob:') || imageInput.startsWith('data:')) {
+          final response = await http.get(Uri.parse(imageInput));
+          imageBytes = response.bodyBytes;
+        } else {
+          final response = await http.get(Uri.parse(imageInput));
+          imageBytes = response.bodyBytes;
+        }
+      } else {
+        throw Exception('Invalid web image input type: ${imageInput.runtimeType}');
+      }
 
-      // 2. Call Render API
+      // Call Render API with automatic retry while container wakes from cold-start
       final String apiUrl = dotenv.env['RENDER_API_URL'] ?? 'https://cabbage-disease-classify-test.onrender.com/predict';
       
-      var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
-      request.files.add(http.MultipartFile.fromBytes(
-        'file',
-        imageBytes,
-        filename: 'image.jpg',
-      ));
+      int attempts = 0;
+      const int maxAttempts = 12; // Wait up to ~3 minutes for server response
 
-      final streamedResponse = await request.send();
-      final apiResponse = await http.Response.fromStream(streamedResponse);
+      while (attempts < maxAttempts) {
+        attempts++;
+        try {
+          debugPrint('TFLite Web: Sending request to Render API (Attempt $attempts)...');
+          var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
+          request.files.add(http.MultipartFile.fromBytes(
+            'file',
+            imageBytes,
+            filename: 'image.jpg',
+          ));
 
-      if (apiResponse.statusCode == 200) {
-        final dynamic data = jsonDecode(apiResponse.body);
-        String label = data['disease'] ?? data['label'] ?? 'Healthy';
-        double confidence = (data['confidence'] as num?)?.toDouble() ?? 0.0;
-        bool isLeaf = (data['is_leaf'] as bool?) ?? (label != 'Not a Cabbage Leaf' && label != 'Not cabbage');
+          final streamedResponse = await request.send().timeout(const Duration(seconds: 25));
+          final apiResponse = await http.Response.fromStream(streamedResponse);
 
-        if (!isLeaf || label == 'Not a Cabbage Leaf' || label == 'Not cabbage') {
-          return {
-            'label': 'Not a Cabbage Leaf',
-            'confidence': confidence,
-            'index': 6,
-            'isLeaf': false,
-          };
+          if (apiResponse.statusCode == 200) {
+            final dynamic data = jsonDecode(apiResponse.body);
+            String label = data['disease'] ?? data['label'] ?? 'Healthy';
+            double confidence = (data['confidence'] as num?)?.toDouble() ?? 0.0;
+            bool isLeaf = (data['is_leaf'] as bool?) ?? (label != 'Not a Cabbage Leaf' && label != 'Not cabbage');
+
+            if (!isLeaf || label == 'Not a Cabbage Leaf' || label == 'Not cabbage') {
+              return {
+                'label': 'Not a Cabbage Leaf',
+                'confidence': confidence,
+                'index': 6,
+                'isLeaf': false,
+              };
+            }
+
+            return {
+              'label': label,
+              'confidence': confidence,
+              'index': _labels.contains(label) ? _labels.indexOf(label) : 0,
+              'isLeaf': true,
+            };
+          } else {
+            debugPrint('TFLite Web: Render API returned status ${apiResponse.statusCode}, retrying...');
+          }
+        } catch (attemptErr) {
+          debugPrint('TFLite Web: Attempt $attempts error: $attemptErr, retrying...');
         }
 
-        return {
-          'label': label,
-          'confidence': confidence,
-          'index': _labels.contains(label) ? _labels.indexOf(label) : 0,
-          'isLeaf': true,
-        };
-      } else {
-        debugPrint('TFLite Web: Render API Error: ${apiResponse.statusCode} - ${apiResponse.body}');
-        return null;
+        // Brief delay before next retry attempt
+        await Future.delayed(const Duration(milliseconds: 2000));
       }
+
+      debugPrint('TFLite Web Error: Max retries reached.');
+      return null;
     } catch (e) {
       debugPrint('TFLite Web Error: $e');
       return null;

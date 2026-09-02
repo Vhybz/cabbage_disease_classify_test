@@ -64,25 +64,40 @@ class TFLiteService implements TFLiteServiceInterface {
   }
 
   @override
-  Future<Map<String, dynamic>?> classifyImage(String imageSource) async {
+  Future<Map<String, dynamic>?> classifyImage(dynamic imageInput) async {
     try {
       if (_interpreter == null) await loadModel();
       if (_interpreter == null) {
         debugPrint('TFLite Mobile: Interpreter is null, falling back to Render API...');
-        return await _classifyWithRenderAPI(imageSource);
+        return await _classifyWithRenderAPI(imageInput);
       }
 
-      final File imageFile = File(imageSource.startsWith('http') ? await _downloadImage(imageSource) : imageSource);
-      if (!imageFile.existsSync()) {
-        debugPrint('TFLite Error: Image file does not exist at $imageSource, trying Render API...');
-        return await _classifyWithRenderAPI(imageSource);
+      Uint8List bytes;
+      if (imageInput is Uint8List) {
+        bytes = imageInput;
+      } else if (imageInput is List<int>) {
+        bytes = Uint8List.fromList(imageInput);
+      } else if (imageInput is String) {
+        if (imageInput.startsWith('http')) {
+          final downloadedPath = await _downloadImage(imageInput);
+          bytes = File(downloadedPath).readAsBytesSync();
+        } else {
+          final File imageFile = File(imageInput);
+          if (!imageFile.existsSync()) {
+            debugPrint('TFLite Error: Image file does not exist at $imageInput, trying Render API...');
+            return await _classifyWithRenderAPI(imageInput);
+          }
+          bytes = imageFile.readAsBytesSync();
+        }
+      } else {
+        debugPrint('TFLite Error: Unsupported image input type: ${imageInput.runtimeType}');
+        return await _classifyWithRenderAPI(imageInput);
       }
 
-      final Uint8List bytes = imageFile.readAsBytesSync();
       var image = img.decodeImage(bytes);
       if (image == null) {
         debugPrint('TFLite Error: Failed to decode image bytes (${bytes.length} bytes), trying Render API...');
-        return await _classifyWithRenderAPI(imageSource);
+        return await _classifyWithRenderAPI(imageInput);
       }
       image = img.bakeOrientation(image);
       debugPrint('TFLite Info: Successfully decoded image (${image.width}x${image.height})');
@@ -154,18 +169,26 @@ class TFLiteService implements TFLiteServiceInterface {
       };
     } catch (e) {
       debugPrint('TFLite Inference Error: $e. Falling back to Render API...');
-      return await _classifyWithRenderAPI(imageSource);
+      return await _classifyWithRenderAPI(imageInput);
     }
   }
 
-  Future<Map<String, dynamic>?> _classifyWithRenderAPI(String imageSource) async {
+  Future<Map<String, dynamic>?> _classifyWithRenderAPI(dynamic imageInput) async {
     try {
       final String apiUrl = dotenv.env['RENDER_API_URL'] ?? 'https://cabbage-disease-classify-test.onrender.com/predict';
       
-      final File imageFile = File(imageSource.startsWith('http') ? await _downloadImage(imageSource) : imageSource);
-      if (!imageFile.existsSync()) return null;
-
-      final Uint8List imageBytes = await imageFile.readAsBytes();
+      Uint8List imageBytes;
+      if (imageInput is Uint8List) {
+        imageBytes = imageInput;
+      } else if (imageInput is List<int>) {
+        imageBytes = Uint8List.fromList(imageInput);
+      } else if (imageInput is String) {
+        final File imageFile = File(imageInput.startsWith('http') ? await _downloadImage(imageInput) : imageInput);
+        if (!imageFile.existsSync()) return null;
+        imageBytes = await imageFile.readAsBytes();
+      } else {
+        return null;
+      }
 
       var request = http.MultipartRequest('POST', Uri.parse(apiUrl));
       request.files.add(http.MultipartFile.fromBytes(
