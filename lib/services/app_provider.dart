@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'dart:async' as async;
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'dart:io' as io;
@@ -505,7 +505,7 @@ class AppProvider with ChangeNotifier {
           'FINALIZING DIAGNOSIS...'
         ];
 
-        final progressTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+        final progressTimer = async.Timer.periodic(const Duration(seconds: 3), (timer) {
           if (!_isLoading) {
             timer.cancel();
             return;
