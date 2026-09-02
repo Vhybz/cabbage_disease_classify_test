@@ -68,9 +68,9 @@ class TFLiteService implements TFLiteServiceInterface {
             final dynamic data = jsonDecode(apiResponse.body);
             String label = data['disease'] ?? data['label'] ?? 'Healthy';
             double confidence = (data['confidence'] as num?)?.toDouble() ?? 0.0;
-            bool isLeaf = (data['is_leaf'] as bool?) ?? (confidence >= 0.50 && label != 'Not a Cabbage Leaf' && label != 'Not cabbage' && label != 'Image Not Recognized as Cabbage');
+            bool isLeaf = (data['is_leaf'] as bool?) ?? (confidence >= 0.55 && label != 'Not a Cabbage Leaf' && label != 'Not cabbage' && label != 'Image Not Recognized as Cabbage');
 
-            if (confidence < 0.50 || !isLeaf || label == 'Not a Cabbage Leaf' || label == 'Not cabbage' || label == 'Image Not Recognized as Cabbage') {
+            if (confidence < 0.55 || !isLeaf || label == 'Not a Cabbage Leaf' || label == 'Not cabbage' || label == 'Image Not Recognized as Cabbage') {
               return {
                 'label': 'Image Not Recognized as Cabbage',
                 'confidence': confidence,
