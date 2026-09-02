@@ -148,12 +148,15 @@ class TFLiteService implements TFLiteServiceInterface {
       }
       debugPrint('-----------------------');
 
+      // 50% confidence threshold constraint
+      const double threshold = 0.50;
+      bool isConfident = maxScore >= threshold;
       String predictedLabel = maxIndex < _labels.length ? _labels[maxIndex] : 'Unidentified';
-      bool isNotLeaf = maxIndex == 6 || predictedLabel == 'Not a Cabbage Leaf' || predictedLabel == 'Not cabbage';
+      bool isNotLeaf = !isConfident || maxIndex == 6 || predictedLabel == 'Not a Cabbage Leaf' || predictedLabel == 'Not cabbage' || predictedLabel == 'Image Not Recognized as Cabbage';
 
       if (isNotLeaf) {
         return {
-          'label': 'Not a Cabbage Leaf',
+          'label': 'Image Not Recognized as Cabbage',
           'confidence': maxScore,
           'index': maxIndex,
           'isLeaf': false,
