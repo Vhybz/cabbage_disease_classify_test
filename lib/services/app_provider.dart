@@ -396,12 +396,23 @@ class AppProvider with ChangeNotifier {
       'image': 'assets/images/c8.jpg'
     },
     'Not a Cabbage Leaf': {
-      'description': 'The scanned image does not appear to be a cabbage leaf.',
+      'description': 'The scanned image is not recognized as a cabbage leaf.',
       'symptoms': '• Image shows non-cabbage plants, objects, or blurred backgrounds.',
       'causes': '• Photo taken of non-cabbage subject or poor lighting/focus.',
       'prevention': '• Ensure proper lighting and focus directly on a cabbage leaf.',
       'treatment': '• Please retake the photo focusing clearly on a single cabbage leaf.',
-      'twi_name': 'Ɛnyɛ Kabeji Nhaban',
+      'twi_name': 'Mfonini no nyɛ Kabeji Nhaban',
+      'twi_description': 'Mfonini no nyɛ kabeji nhaban anaa ɛnyɛ fann.',
+      'twi_treatment': 'Sane yɛ mfonini foforɔ a ɛfa kabeji nhaban ho.',
+      'image': 'assets/images/c9.jpg'
+    },
+    'Image Not Recognized as Cabbage': {
+      'description': 'The scanned image is not recognized as a cabbage leaf.',
+      'symptoms': '• Image shows non-cabbage plants, objects, or blurred backgrounds.',
+      'causes': '• Photo taken of non-cabbage subject or poor lighting/focus.',
+      'prevention': '• Ensure proper lighting and focus directly on a cabbage leaf.',
+      'treatment': '• Please retake the photo focusing clearly on a single cabbage leaf.',
+      'twi_name': 'Mfonini no nyɛ Kabeji Nhaban',
       'twi_description': 'Mfonini no nyɛ kabeji nhaban anaa ɛnyɛ fann.',
       'twi_treatment': 'Sane yɛ mfonini foforɔ a ɛfa kabeji nhaban ho.',
       'image': 'assets/images/c9.jpg'
@@ -541,7 +552,7 @@ class AppProvider with ChangeNotifier {
         if (result != null) {
           if (result['isLeaf'] == false) {
             _currentPrediction = Prediction(
-              diseaseName: _language == 'Twi' ? 'Ɛnyɛ Kabeji Nhaban' : 'Not a Valid Cabbage Leaf',
+              diseaseName: _language == 'Twi' ? 'Mfonini no nyɛ Kabeji Nhaban' : 'Image Not Recognized as Cabbage',
               confidence: (result['confidence'] as num?)?.toDouble() ?? 0.0,
               description: _language == 'Twi' 
                   ? 'Mfonini a woyiiɛ no nsɛ kabeji nhaban anaa ɛnyɛ fann. Yɛpa wo kyɛw scan kabeji nhaban a ɛfata na fann.' 
