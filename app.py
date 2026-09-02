@@ -122,9 +122,8 @@ async def predict(file: UploadFile = File(...)):
         max_score = float(probabilities[max_idx])
         predicted_label = LABELS[max_idx] if max_idx < len(LABELS) else "Unidentified"
 
-        # Model spec confidence threshold = 0.891
-        confidence_threshold = 0.891
-        is_leaf = (max_score >= confidence_threshold) and (predicted_label not in ["Not a Cabbage Leaf", "Not cabbage"])
+        # Model specification logic: is_leaf is True unless top prediction is index 6 ('Not a Cabbage Leaf')
+        is_leaf = (max_idx != 6) and (predicted_label not in ["Not a Cabbage Leaf", "Not cabbage"])
 
         all_scores = {LABELS[i]: round(float(probabilities[i]), 4) for i in range(min(len(LABELS), len(probabilities)))}
 
